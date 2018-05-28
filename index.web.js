@@ -22,6 +22,10 @@ class CsrBt {
         return true;
     }
 
+    static setNetworkPassPhrase({
+        passPhrase
+    }) {}
+
     // 自动重连
     static autoConnect({
         userMeshName,

@@ -4,21 +4,30 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.ScanSettings;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.ParcelUuid;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -26,6 +35,9 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
+import java.util.Calendar;
+import java.util.TimeZone;
+import java.util.UUID;
 
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -43,10 +55,14 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import com.csr.csrmesh2.ConfigModelApi;
+import com.csr.csrmesh2.DeviceInfo;
 import com.csr.csrmesh2.MeshConstants;
 import com.csr.csrmesh2.MeshService;
+import com.csr.csrmesh2.LightModelApi;
 import com.csr.csrmesh2.PowerModelApi;
 import com.csr.csrmesh2.PowerState;
+import com.csr.csrmesh2.TimeModelApi;
 
 import static com.csr.csrmesh2rn.CsrBtPackage.TAG;
 
@@ -54,6 +70,12 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
 
     // Debugging
     private static final boolean D = true;
+
+    private static final int ACCESS_COARSE_LOCATION_RESULT_CODE = 4;
+    private static final int BLUETOOTH_RESULT_CODE = 5;
+    private static final int STORAGE_RESULT_CODE = 6;
+
+    private static int MIN_DEVICE_ID = 0x8000;
 
     // Event names
     public static final String BT_ENABLED = "bluetoothEnabled";
@@ -98,6 +120,8 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     private Handler mHandler = new Handler(Looper.getMainLooper());
     protected boolean isInited = false;
     protected boolean isServiceStarted = false;
+    protected int reqId = -1;
+    protected WritableArray mDhmKey = Arguments.createArray();
 
     // Patch
     private String mPatchConfigNodeOldName;
@@ -210,6 +234,8 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         if (isServiceStarted || mService != null)
             return;
 
+        checkLocation();
+
         isServiceStarted = true;
         // Intent bindIntent = new Intent(mContext.get(), MeshService.class);
         Intent bindIntent = new Intent(mContext, MeshService.class);
@@ -231,6 +257,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         mReactContext.addLifecycleEventListener(this);
         registerBluetoothStateReceiver();
     }
+
     @ReactMethod
     public void doDestroy() {
         if (isInited) {
@@ -283,11 +310,88 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
 
         // Broadcasting time to the mesh network whenever we resume the app.
         // MeshLibraryManager.MeshChannel channel = MeshLibraryManager.getInstance().getChannel();
-        // if (MeshLibraryManager.getInstance().isServiceAvailable() && channel == MeshLibraryManager.MeshChannel.BLUETOOTH) {
-        //     TimeModel.broadcastTime();
-        // }
+        if (mService != null) {
+            final int MS_IN_15_MINS = 15 * 60 * 1000;
+            final byte utcOffset = (byte)(TimeZone.getDefault().getOffset(Calendar.getInstance().getTimeInMillis()) / MS_IN_15_MINS);
+// Log.d(TAG, "TimeInMillis" + Calendar.getInstance().getTimeInMillis());
+// Log.d(TAG, "utcOffset" + utcOffset);
+//             TimeModelApi.broadcastTime(Calendar.getInstance().getTimeInMillis(), utcOffset, true);
+        }
+
+        checkPermissions();
+        checkAvailability();
 
         Log.d(TAG, "onResume");
+    }
+
+    private void checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+                    Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(getCurrentActivity(),
+                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                        ACCESS_COARSE_LOCATION_RESULT_CODE);
+            }
+            else if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+                    Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(getCurrentActivity(),
+                        new String[]{Manifest.permission.BLUETOOTH},
+                        BLUETOOTH_RESULT_CODE);
+            }
+            else if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(getCurrentActivity(),
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        STORAGE_RESULT_CODE);
+            }
+            else {
+                Log.d(TAG, "checkPermissions ok");
+            }
+        }
+    }
+
+    //---- BT and BLE
+    @TargetApi(18)
+    private void checkAvailability() {
+        if(Build.VERSION.SDK_INT < 18) {
+            Log.d(TAG, "Bluetooth LE not supported by this device");
+        } else if(!mContext.getPackageManager().hasSystemFeature("android.hardware.bluetooth_le")) {
+            Log.d(TAG, "Bluetooth LE not supported by this device");
+        } else {
+            if(((BluetoothManager)mContext.getSystemService(mContext.BLUETOOTH_SERVICE)).getAdapter().isEnabled())
+                Log.d(TAG, "Bluetooth is enabled");
+            else
+                Log.d(TAG, "Bluetooth is not enabled!");
+        }
+    }
+
+    public void checkLocation() {
+        if (Build.VERSION.SDK_INT >=23) {
+            LocationManager lm = null;
+            boolean gps_enabled = false;
+            boolean network_enabled = false;
+
+            lm = (LocationManager) getCurrentActivity().getSystemService(mContext.LOCATION_SERVICE);
+            // exceptions will be thrown if provider is not permitted.
+            try {
+                gps_enabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+                Log.d(TAG, "gps_enabled: " + gps_enabled);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            try {
+                network_enabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+                Log.d(TAG, "network_enabled:" + network_enabled);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            if (gps_enabled == false || network_enabled == false) {
+                // Show our settings alert and let the use turn on the GPS/Location
+                // showBTStatusDialog(false);
+            }
+
+
+        }
     }
 
     @ReactMethod
@@ -299,7 +403,9 @@ promise.resolve(true);
 
     @ReactMethod
     public void setNetworkPassPhrase(String passPhrase) {
-        mService.setNetworkPassPhrase(passPhrase);
+        if (mService != null) {
+            mService.setNetworkPassPhrase(passPhrase);
+        }
     }
 
     @ReactMethod
@@ -317,7 +423,28 @@ promise.resolve(true);
         // }
 
         // TelinkLightService.Instance().autoConnect(connectParams);
-mService.startAutoConnect(5);
+Log.d(TAG, "prepare autoConnect");
+//         if (Build.VERSION.SDK_INT >= 21) {
+// Log.d(TAG, "ScanSettings.SCAN_MODE_LOW_LATENCY");
+//             mService.setBluetoothBearerEnabled(ScanSettings.SCAN_MODE_LOW_LATENCY);
+//         }
+//         else {
+            mService.setBluetoothBearerEnabled();
+        // }
+    }
+
+    /**
+     * Set bluetooth as bearer and connect to a bridge
+     */
+    private void connectBluetooth() {
+Log.d(TAG, "start autoConnect");
+mService.setNetworkPassPhrase("aaaa");
+mService.setTTL((byte)100);
+Log.d(TAG, "xxxxxgetTTL" + mService.getTTL());
+// mService.setControllerAddress(32769);
+        mService.setMeshListeningMode(true, false);
+        mService.startAutoConnect(1);
+        //mService.setContinuousLeScanEnabled(true);
     }
 
     @ReactMethod
@@ -342,18 +469,26 @@ mService.startAutoConnect(5);
         // params.setTimeoutSeconds(timeoutSeconds);
         // params.setScanMode(isSingleNode);
         // TelinkLightService.Instance().startScan(params);
+Log.d(TAG, "startScan");
 mService.setDeviceDiscoveryFilterEnabled(true);
     }
 
     @ReactMethod
     private void stopScan() {
+Log.d(TAG, "stopScan");
         mService.setDeviceDiscoveryFilterEnabled(false);
     }
 
     @ReactMethod
     private void changePower(int meshAddress, int value) {
         if (value >= 0 && value < PowerState.values().length) {
-            PowerModelApi.setState(meshAddress, PowerState.values()[value], false);
+Log.d(TAG, "xxxxxxmeshAddress: " + meshAddress);
+Log.d(TAG, "xxxxxxvalue: " + value);
+Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
+// LightModelApi.getState(meshAddress);
+// ConfigModelApi.getInfo(meshAddress, DeviceInfo.MODEL_LOW);
+            PowerModelApi.setState(meshAddress, PowerState.values()[value], true);
+            // PowerModelApi.toggleState(meshAddress, true);
         }
     }
 
@@ -422,7 +557,35 @@ mService.setDeviceDiscoveryFilterEnabled(true);
     @ReactMethod
     private void configNode(ReadableMap node, ReadableMap cfg, Promise promise) {
         // mPatchConfigNodeOldName = cfg.getString("oldName");
-        // mConfigNodePromise = promise;
+        mConfigNodePromise = promise;
+        if (node.hasKey("dhmKey")) {
+            ReadableArray array = node.getArray("dhmKey");
+            int length = array.size();
+            byte[] dhmKey = new byte[length];
+            for (int i = 0; i < length; i++) {
+                dhmKey[i] = (byte) array.getInt(i);
+            }
+            mConfigNodePromise.resolve(true);
+            mConfigNodePromise = null;
+            mService.resetDevice(node.getInt("meshAddress"), dhmKey);
+        } else {
+            mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
+        }
+
+        // if (shortCode == null) {
+        //     mAssociationTransactionId = mService.associateDevice(uuidHash, 0, false);
+        //     notifyAssociationFragment(0);
+        //     return true;
+        // } else {
+        //     int decodedHash = MeshService.getDeviceHashFromShortcode(shortCode);
+
+        //     if (decodedHash == uuidHash) {
+        //         mAssociationTransactionId = mService.associateDevice(uuidHash, MeshService.getAuthorizationCode(shortCode), true);
+        //         notifyAssociationFragment(0);
+        //         return true;
+        //     }
+        //     return false;
+        // }
 
         // DeviceInfo deviceInfo = new DeviceInfo();
         // deviceInfo.macAddress = node.getString("macAddress");
@@ -442,12 +605,33 @@ mService.setDeviceDiscoveryFilterEnabled(true);
         // TelinkLightService.Instance().updateMesh(params);
     }
 
-    private void onUpdateMeshCompleted() {
+    private void onUpdateMeshCompleted(Bundle data) {
         if (D) Log.d(TAG, "onUpdateMeshCompleted");
-        if (mConfigNodePromise != null) {
-            mConfigNodePromise.resolve(true);
-        }
-        mConfigNodePromise = null;
+showBundleData(data);
+
+int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
+byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
+WritableArray array = Arguments.createArray();
+for (byte key : dhmKey) {
+    array.pushInt(key);
+}
+mDhmKey = array;
+reqId = ConfigModelApi.getInfo(deviceId, DeviceInfo.APPEARANCE);
+
+        // if (mConfigNodePromise != null) {
+        //         // int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
+        //         // int uuidHash = data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
+        //         // byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
+        //     byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
+        //     WritableArray array = Arguments.createArray();
+        //     for (byte key : dhmKey) {
+        //         array.pushInt(key);
+        //     }
+        //     WritableMap params = Arguments.createMap();
+        //     params.putArray("dhmKey", array);
+        //     mConfigNodePromise.resolve(params);
+        // }
+        // mConfigNodePromise = null;
     }
 
 //     private void onUpdateMeshFailure(DeviceInfo deviceInfo) {
@@ -466,6 +650,39 @@ mService.setDeviceDiscoveryFilterEnabled(true);
             mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
         }
         mConfigNodePromise = null;
+    }
+
+    private void configDeviceInfo(Bundle data) {
+showBundleData(data);
+        int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
+        DeviceInfo type = DeviceInfo.values()[data.getInt(MeshConstants.EXTRA_DEVICE_INFO_TYPE)];
+        if (type == DeviceInfo.APPEARANCE) {
+            if (mConfigNodePromise != null) {
+                WritableMap params = Arguments.createMap();
+                params.putString("name", getNameByAppearance((int) data.getLong(MeshConstants.EXTRA_DEVICE_INFORMATION)) + " " + (deviceId - MIN_DEVICE_ID));
+                params.putArray("dhmKey", mDhmKey);
+                mConfigNodePromise.resolve(params);
+            }
+            mConfigNodePromise = null;
+        }
+    }
+
+    private String getNameByAppearance(int appearance) {
+        if (appearance == MeshConstants.LIGHT_APPEARANCE) {
+            return "Light";
+        }
+        else if (appearance == MeshConstants.HEATER_APPEARANCE) {
+            return "Heater";
+        }
+        else if (appearance == MeshConstants.SENSOR_APPEARANCE) {
+            return "Sensor";
+        }
+        else if (appearance == MeshConstants.CONTROLLER_APPEARANCE) {
+            return "Controller";
+        }
+        else {
+            return "Unknown";
+        }
     }
 
     // private void onNError(final DeviceEvent event) {
@@ -569,20 +786,28 @@ Log.d(TAG, " }Bundle");
 
     private void onLeScan(Bundle data) {
         showBundleData(data);
-        //         ParcelUuid uuid = event.data.getParcelable(MeshConstants.EXTRA_UUID);
-        //         int uuidHash = event.data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
-        //         int rssi = event.data.getInt(MeshConstants.EXTRA_RSSI);
-        //         int ttl = event.data.getInt(MeshConstants.EXTRA_TTL);
+// 05-17 07:57:48.646: D/CsrBt(5849):  UUIDHASH31 => 338810919;
+// 05-17 07:57:48.646: D/CsrBt(5849):  UUIDHASH64 => -4289093326588487641;
+// 05-17 07:57:48.646: D/CsrBt(5849):  TTL => 10;
+// 05-17 07:57:48.646: D/CsrBt(5849):  RSSI => -58;
+// 05-17 07:57:48.648: D/CsrBt(5849):  UUID => 01012800-0000-0000-2339-c01a63d8c2c3;
+        ParcelUuid uuid = data.getParcelable(MeshConstants.EXTRA_UUID);
+        int uuidHash = data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
+        int rssi = data.getInt(MeshConstants.EXTRA_RSSI);
+        int ttl = data.getInt(MeshConstants.EXTRA_TTL);
+// Log.d(TAG, "uuidHash: " + uuidHash);
+// Log.d(TAG, "getDeviceHash31FromUuid: " + mService.getDeviceHash31FromUuid(UUID.fromString(uuid.toString())));
         // DeviceInfo deviceInfo = event.getArgs();
-        // WritableMap params = Arguments.createMap();
-        // params.putString("macAddress", deviceInfo.macAddress);
+        WritableMap params = Arguments.createMap();
+        params.putString("macAddress", uuidHash + "");
         // params.putString("deviceName", deviceInfo.deviceName);
         // params.putString("meshName", deviceInfo.meshName);
         // params.putInt("meshAddress", deviceInfo.meshAddress);
-        // params.putInt("meshUUID", deviceInfo.meshUUID);
+        // params.putInt("meshUUID", uuid.toString());
         // params.putInt("productUUID", deviceInfo.productUUID);
         // params.putInt("status", deviceInfo.status);
-        // sendEvent(LE_SCAN, params);
+Log.d(TAG, "ControllerAddress: " + mService.getControllerAddress());
+        sendEvent(LE_SCAN, params);
     }
 
     // private void onMeshEventUpdateCompleted(MeshEvent event) {
@@ -612,6 +837,7 @@ Log.d(TAG, " }Bundle");
         }
     };
 
+    private static final String BRIDGE_ADDRESS = "00:00:00:00:23:29";
     private BluetoothAdapter.LeScanCallback mScanCallBack = new BluetoothAdapter.LeScanCallback() {
         @Override
         public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
@@ -623,7 +849,15 @@ Log.d(TAG, " }Bundle");
                     mService.connectBridge(device);
                     mService.setContinuousLeScanEnabled(false);
                 }*/
+                // if (device.getAddress().equalsIgnoreCase(BRIDGE_ADDRESS)) {
+                //     Log.d(TAG, "Connecting to bridge: " + BRIDGE_ADDRESS);
+                //     mService.connectBridge(device);
+                // }
                 if (mService.processMeshAdvert(device, scanRecord, rssi)) {
+Log.d(TAG, "to processMeshAdvert");
+Log.d(TAG, "device.getAddress: " + device.getAddress());
+Log.d(TAG, "scanRecord[0]: " + scanRecord[0]);
+Log.d(TAG, "rssi: " + rssi);
                     // Notify about the new device scanned.
                     // {
                     //     Bundle data = new Bundle();
@@ -651,19 +885,72 @@ Log.d(TAG, " }Bundle");
 
         @Override
         public void handleMessage(Message msg) {
+            Bundle data = msg.getData();
             Log.d(TAG, "handleMessage: " + msg.what);
             switch (msg.what) {
-                // case MeshConstants.MESSAGE_LE_BEARER_READY: {
-                //     // The library is ready for connection now.
-                //     mParent.get().connectBluetooth();
-                //     break;
-                // }
-                case MeshConstants.MESSAGE_DEVICE_DISCOVERED: {
-                    Log.d(TAG, "MESSAGE_DEVICE_DISCOVERED");
-                    mParent.get().onLeScan(msg.getData());
+                case MeshConstants.MESSAGE_LE_BEARER_READY:
+                    mParent.get().connectBluetooth();
+                    break;
+                case MeshConstants.MESSAGE_LE_CONNECTED: {
+                    Log.d(TAG, "MeshConstants.MESSAGE_LE_CONNECTED " + data.getString(MeshConstants.EXTRA_DEVICE_ADDRESS));
+                    showBundleData(data);
                     break;
                 }
-
+                case MeshConstants.MESSAGE_LE_DISCONNECTED: {
+                    Log.d(TAG, "Response MESSAGE_LE_DISCONNECT");
+                    showBundleData(data);
+                    break;
+                }
+                // case MeshConstants.MESSAGE_DEVICE_APPEARANCE:
+                //     Log.d(TAG, "MESSAGE_DEVICE_APPEARANCE");
+                //     showBundleData(data);
+                //     break;
+                case MeshConstants.MESSAGE_RESET_DEVICE:
+                    Log.d(TAG, "MESSAGE_RESET_DEVICE");
+                    /* The application can handle a request to reset here.
+                     * It should calculate the signature using ConfigModelApi.computeResetDeviceSignatureWithDeviceHash(long, byte[])
+                     * to check the signature is valid.
+                     */
+                    break;
+                case MeshConstants.MESSAGE_CONFIG_DEVICE_INFO: {
+                    Log.d(TAG, "MESSAGE_CONFIG_DEVICE_INFO");
+                    mParent.get().configDeviceInfo(data);
+                    break;
+                }
+                case MeshConstants.MESSAGE_DEVICE_DISCOVERED:
+                    Log.d(TAG, "MESSAGE_DEVICE_DISCOVERED");
+                    mParent.get().onLeScan(data);
+                    break;
+                case MeshConstants.MESSAGE_TIMEOUT:
+                    Log.d(TAG, "MESSAGE_TIMEOUT");
+                    showBundleData(data);
+                    break;
+                // case MeshConstants.MESSAGE_ASSOCIATING_DEVICE:
+                //     Log.d(TAG, "MESSAGE_ASSOCIATING_DEVICE");
+                //     showBundleData(data);
+                //     break;
+                case MeshConstants.MESSAGE_LOCAL_DEVICE_ASSOCIATED:
+                    Log.d(TAG, "MESSAGE_LOCAL_DEVICE_ASSOCIATED");
+                    showBundleData(data);
+                    break;
+                case MeshConstants.MESSAGE_LOCAL_ASSOCIATION_FAILED:
+                    Log.d(TAG, "MESSAGE_LOCAL_ASSOCIATION_FAILED");
+                    showBundleData(data);
+                    break;
+                case MeshConstants.MESSAGE_ASSOCIATION_PROGRESS:
+                    Log.d(TAG, "MESSAGE_ASSOCIATION_PROGRESS");
+                    showBundleData(data);
+                    break;
+                case MeshConstants.MESSAGE_DEVICE_ASSOCIATED:
+                    Log.d(TAG, "MESSAGE_DEVICE_ASSOCIATED");
+                    mParent.get().onUpdateMeshCompleted(data);
+                    break;
+                case MeshConstants.MESSAGE_RECEIVE_BLOCK_DATA: {  /* SkyLine_1 */
+                    Log.e(TAG, "MESSAGE_RECEIVE_BLOCK_DATA" + data);
+                    // SendDataToServer.addSendDataToServer(data);
+                    // App.bus.post(new MeshResponseEvent(MeshResponseEvent.ResponseEvent.DATA_RECEIVE_BLOCK, data));
+                    break;
+                }
                 default:
                     break;
             }
