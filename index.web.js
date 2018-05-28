@@ -1,6 +1,6 @@
 class CsrBt {
-    static MESH_ADDRESS_MIN = 0x0001;
-    static MESH_ADDRESS_MAX = 0x00FF;
+    static MESH_ADDRESS_MIN = 0x8001;
+    static MESH_ADDRESS_MAX = 0x8FFF;
     static BRIGHTNESS_MIN = 1;
     static BRIGHTNESS_MAX = 127;
     static COLOR_TEMP_MIN = 1;
@@ -73,6 +73,7 @@ class CsrBt {
     static configNode({
         node,
         cfg,
+        isToClaim,
     }) {}
 }
 

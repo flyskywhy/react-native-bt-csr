@@ -65,6 +65,7 @@ import com.csr.csrmesh2.PowerState;
 import com.csr.csrmesh2.TimeModelApi;
 
 import static com.csr.csrmesh2rn.CsrBtPackage.TAG;
+import com.csr.csrmesh2rn.utils.Hex;
 
 public class CsrBtNativeModule extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
 
@@ -120,8 +121,8 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     private Handler mHandler = new Handler(Looper.getMainLooper());
     protected boolean isInited = false;
     protected boolean isServiceStarted = false;
-    protected int reqId = -1;
-    protected WritableArray mDhmKey = Arguments.createArray();
+    protected int mReqId = -1;
+    protected String mDhmKey;
 
     // Patch
     private String mPatchConfigNodeOldName;
@@ -215,29 +216,12 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
             isInited = true;
         }
 
-        // mTelinkApplication.doInit();
-        //AES.Security = true;
-
-        // 监听各种事件
-        // mTelinkApplication.addEventListener(DeviceEvent.STATUS_CHANGED, this);
-        // mTelinkApplication.addEventListener(NotificationEvent.ONLINE_STATUS, this);
-        // mTelinkApplication.addEventListener(NotificationEvent.GET_DEVICE_STATE, this);
-        // mTelinkApplication.addEventListener(ServiceEvent.SERVICE_CONNECTED, this);
-        // mTelinkApplication.addEventListener(LeScanEvent.LE_SCAN, this);
-        // mTelinkApplication.addEventListener(LeScanEvent.LE_SCAN_TIMEOUT, this);
-        // mTelinkApplication.addEventListener(LeScanEvent.LE_SCAN_COMPLETED, this);
-        // mTelinkApplication.addEventListener(MeshEvent.OFFLINE, this);
-        // mTelinkApplication.addEventListener(MeshEvent.UPDATE_COMPLETED, this);
-        // mTelinkApplication.addEventListener(MeshEvent.ERROR, this);
-
-
         if (isServiceStarted || mService != null)
             return;
 
         checkLocation();
 
         isServiceStarted = true;
-        // Intent bindIntent = new Intent(mContext.get(), MeshService.class);
         Intent bindIntent = new Intent(mContext, MeshService.class);
         mContext.bindService(bindIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
 
@@ -512,137 +496,27 @@ Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
         // TelinkLightService.Instance().sendCommandNoResponse(opcode, meshAddress, params);
     }
 
-    // @ReactMethod
-    // private void configNodes(ReadableArray nodes, ReadableMap cfg, Promise promise) {
-    //     int count = nodes.size();
-    //     DeviceInfo[] deviceInfos = new DeviceInfo[count];
-    //     for (int i = 0; i < count; i++) {
-    //         ReadableMap node = nodes.getMap(i);
-    //         DeviceInfo deviceInfo = new DeviceInfo();
-    //         deviceInfo.macAddress = node.getString("macAddress");
-    //         // deviceInfo.deviceName = node.getString("deviceName");
-    //         // deviceInfo.meshName = node.getString("meshName");
-    //         deviceInfo.meshAddress = node.getInt("meshAddress");
-    //         // deviceInfo.meshUUID = node.getInt("meshUUID");
-    //         // deviceInfo.productUUID = node.getInt("productUUID");
-    //         // deviceInfo.status = node.getInt("status");
-    //         deviceInfos[i] = deviceInfo;
-    //     }
-
-    //     LeUpdateParameters params = Parameters.createUpdateParameters();
-    //     params.setOldMeshName(cfg.getString("oldName"));
-    //     params.setOldPassword(cfg.getString("oldPwd"));
-    //     params.setNewMeshName(cfg.getString("newName"));
-    //     params.setNewPassword(cfg.getString("newPwd"));
-    //     params.setUpdateDeviceList(deviceInfos);
-    //     TelinkLightService.Instance().updateMesh(params);
-    // }
-
-    // private void onUpdateMeshCompleted(DeviceInfo deviceInfo) {
-    //     if (D) Log.d(TAG, "onUpdateMeshCompleted");
-    //     WritableMap params = Arguments.createMap();
-    //     params.putString("macAddress", deviceInfo.macAddress);
-    //     params.putString("deviceName", deviceInfo.deviceName);
-    //     params.putString("meshName", deviceInfo.meshName);
-    //     params.putInt("meshAddress", deviceInfo.meshAddress);
-    //     params.putInt("meshUUID", deviceInfo.meshUUID);
-    //     params.putInt("productUUID", deviceInfo.productUUID);
-    //     params.putInt("status", deviceInfo.status);
-    //     sendEvent(DEVICE_STATUS_UPDATE_MESH_COMPLETED, params);
-    // }
-
-// 上面注释掉的 configNodes 和 onUpdateMeshCompleted 是用于批量更新 JS 层传来的 mesh 数组的，
-// 但实际调试发现只能更新第一个 mesh ， 因此还是让 JS 层间隔一段时间调用下面的 configNode 更合适
-
     @ReactMethod
-    private void configNode(ReadableMap node, ReadableMap cfg, Promise promise) {
-        // mPatchConfigNodeOldName = cfg.getString("oldName");
+    private void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
         mConfigNodePromise = promise;
-        if (node.hasKey("dhmKey")) {
-            ReadableArray array = node.getArray("dhmKey");
-            int length = array.size();
-            byte[] dhmKey = new byte[length];
-            for (int i = 0; i < length; i++) {
-                dhmKey[i] = (byte) array.getInt(i);
-            }
+        if (isToClaim) {
+            mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
+        } else {
             mConfigNodePromise.resolve(true);
             mConfigNodePromise = null;
-            mService.resetDevice(node.getInt("meshAddress"), dhmKey);
-        } else {
-            mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
+            mService.resetDevice(node.getInt("meshAddress"), Hex.decodeHex(node.getString("dhmKey").toCharArray()));
         }
-
-        // if (shortCode == null) {
-        //     mAssociationTransactionId = mService.associateDevice(uuidHash, 0, false);
-        //     notifyAssociationFragment(0);
-        //     return true;
-        // } else {
-        //     int decodedHash = MeshService.getDeviceHashFromShortcode(shortCode);
-
-        //     if (decodedHash == uuidHash) {
-        //         mAssociationTransactionId = mService.associateDevice(uuidHash, MeshService.getAuthorizationCode(shortCode), true);
-        //         notifyAssociationFragment(0);
-        //         return true;
-        //     }
-        //     return false;
-        // }
-
-        // DeviceInfo deviceInfo = new DeviceInfo();
-        // deviceInfo.macAddress = node.getString("macAddress");
-        // // deviceInfo.deviceName = node.getString("deviceName");
-        // // deviceInfo.meshName = node.getString("meshName");
-        // deviceInfo.meshAddress = node.getInt("meshAddress");
-        // // deviceInfo.meshUUID = node.getInt("meshUUID");
-        // // deviceInfo.productUUID = node.getInt("productUUID");
-        // // deviceInfo.status = node.getInt("status");
-
-        // LeUpdateParameters params = Parameters.createUpdateParameters();
-        // params.setOldMeshName(cfg.getString("oldName"));
-        // params.setOldPassword(cfg.getString("oldPwd"));
-        // params.setNewMeshName(cfg.getString("newName"));
-        // params.setNewPassword(cfg.getString("newPwd"));
-        // params.setUpdateDeviceList(deviceInfo);
-        // TelinkLightService.Instance().updateMesh(params);
     }
 
     private void onUpdateMeshCompleted(Bundle data) {
         if (D) Log.d(TAG, "onUpdateMeshCompleted");
 showBundleData(data);
 
-int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
-byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
-WritableArray array = Arguments.createArray();
-for (byte key : dhmKey) {
-    array.pushInt(key);
-}
-mDhmKey = array;
-reqId = ConfigModelApi.getInfo(deviceId, DeviceInfo.APPEARANCE);
-
-        // if (mConfigNodePromise != null) {
-        //         // int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
-        //         // int uuidHash = data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
-        //         // byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
-        //     byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
-        //     WritableArray array = Arguments.createArray();
-        //     for (byte key : dhmKey) {
-        //         array.pushInt(key);
-        //     }
-        //     WritableMap params = Arguments.createMap();
-        //     params.putArray("dhmKey", array);
-        //     mConfigNodePromise.resolve(params);
-        // }
-        // mConfigNodePromise = null;
+        int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
+        String mDhmKey = Hex.encodeHexStr(data.getByteArray(MeshConstants.EXTRA_RESET_KEY));
+        WritableArray array = Arguments.createArray();
+        mReqId = ConfigModelApi.getInfo(deviceId, DeviceInfo.APPEARANCE);
     }
-
-//     private void onUpdateMeshFailure(DeviceInfo deviceInfo) {
-// if (deviceInfo.meshName.equals(mPatchConfigNodeOldName)) {  // 开始进行一系列 updateMesh 后，第一个 Mesh 总会同时返回成功和失败的两个 Event 从而导致 JS 层代码逻辑无所适从，所以此处需要该补丁
-//             if (D) Log.d(TAG, "onUpdateMeshFailure");
-//             if (mConfigNodePromise != null) {
-//                 mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
-//             }
-//             mConfigNodePromise = null;
-//         }
-//     }
 
     private void onUpdateMeshFailure() {
         if (D) Log.d(TAG, "onUpdateMeshFailure");
@@ -660,7 +534,7 @@ showBundleData(data);
             if (mConfigNodePromise != null) {
                 WritableMap params = Arguments.createMap();
                 params.putString("name", getNameByAppearance((int) data.getLong(MeshConstants.EXTRA_DEVICE_INFORMATION)) + " " + (deviceId - MIN_DEVICE_ID));
-                params.putArray("dhmKey", mDhmKey);
+                params.putString("dhmKey", mDhmKey);
                 mConfigNodePromise.resolve(params);
             }
             mConfigNodePromise = null;
@@ -786,18 +660,11 @@ Log.d(TAG, " }Bundle");
 
     private void onLeScan(Bundle data) {
         showBundleData(data);
-// 05-17 07:57:48.646: D/CsrBt(5849):  UUIDHASH31 => 338810919;
-// 05-17 07:57:48.646: D/CsrBt(5849):  UUIDHASH64 => -4289093326588487641;
-// 05-17 07:57:48.646: D/CsrBt(5849):  TTL => 10;
-// 05-17 07:57:48.646: D/CsrBt(5849):  RSSI => -58;
-// 05-17 07:57:48.648: D/CsrBt(5849):  UUID => 01012800-0000-0000-2339-c01a63d8c2c3;
+
         ParcelUuid uuid = data.getParcelable(MeshConstants.EXTRA_UUID);
         int uuidHash = data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
         int rssi = data.getInt(MeshConstants.EXTRA_RSSI);
         int ttl = data.getInt(MeshConstants.EXTRA_TTL);
-// Log.d(TAG, "uuidHash: " + uuidHash);
-// Log.d(TAG, "getDeviceHash31FromUuid: " + mService.getDeviceHash31FromUuid(UUID.fromString(uuid.toString())));
-        // DeviceInfo deviceInfo = event.getArgs();
         WritableMap params = Arguments.createMap();
         params.putString("macAddress", uuidHash + "");
         // params.putString("deviceName", deviceInfo.deviceName);
@@ -806,7 +673,6 @@ Log.d(TAG, " }Bundle");
         // params.putInt("meshUUID", uuid.toString());
         // params.putInt("productUUID", deviceInfo.productUUID);
         // params.putInt("status", deviceInfo.status);
-Log.d(TAG, "ControllerAddress: " + mService.getControllerAddress());
         sendEvent(LE_SCAN, params);
     }
 

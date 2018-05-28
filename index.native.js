@@ -108,8 +108,9 @@ class CsrBt {
     static configNode({
         node,
         cfg,
+        isToClaim,
     }) {
-        return NativeModule.configNode(node, cfg);
+        return NativeModule.configNode(node, isToClaim);
     }
 }
 
