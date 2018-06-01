@@ -759,12 +759,12 @@ Log.d(TAG, "rssi: " + rssi);
                     break;
                 case MeshConstants.MESSAGE_LE_CONNECTED: {
                     Log.d(TAG, "MeshConstants.MESSAGE_LE_CONNECTED " + data.getString(MeshConstants.EXTRA_DEVICE_ADDRESS));
-                    showBundleData(data);
+                    mParent.get().sendEvent(DEVICE_STATUS_LOGIN);
                     break;
                 }
                 case MeshConstants.MESSAGE_LE_DISCONNECTED: {
                     Log.d(TAG, "Response MESSAGE_LE_DISCONNECT");
-                    showBundleData(data);
+                    mParent.get().sendEvent(DEVICE_STATUS_LOGOUT);
                     break;
                 }
                 // case MeshConstants.MESSAGE_DEVICE_APPEARANCE:
