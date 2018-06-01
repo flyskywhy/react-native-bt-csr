@@ -513,7 +513,7 @@ Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
 showBundleData(data);
 
         int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
-        String mDhmKey = Hex.encodeHexStr(data.getByteArray(MeshConstants.EXTRA_RESET_KEY));
+        mDhmKey = Hex.encodeHexStr(data.getByteArray(MeshConstants.EXTRA_RESET_KEY));
         WritableArray array = Arguments.createArray();
         mReqId = ConfigModelApi.getInfo(deviceId, DeviceInfo.APPEARANCE);
     }
