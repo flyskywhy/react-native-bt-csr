@@ -121,6 +121,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     private Handler mHandler = new Handler(Looper.getMainLooper());
     protected boolean isInited = false;
     protected boolean isServiceStarted = false;
+    protected boolean isChannelReady = false;
     protected int mReqId = -1;
     protected String mDhmKey;
 
@@ -392,6 +393,11 @@ promise.resolve(true);
         }
     }
 
+    private boolean isConnected()
+    {
+        return isChannelReady && (mService.getActiveBearer() == MeshService.Bearer.BLUETOOTH);
+    }
+
     @ReactMethod
     private void autoConnect(String userMeshName, String userMeshPwd, String otaMac) {
         // LeAutoConnectParameters connectParams = Parameters.createAutoConnectParameters();
@@ -407,14 +413,23 @@ promise.resolve(true);
         // }
 
         // TelinkLightService.Instance().autoConnect(connectParams);
+        if (isConnected()) {
+            sendEvent(DEVICE_STATUS_LOGIN);
+        } else {
 Log.d(TAG, "prepare autoConnect");
 //         if (Build.VERSION.SDK_INT >= 21) {
 // Log.d(TAG, "ScanSettings.SCAN_MODE_LOW_LATENCY");
 //             mService.setBluetoothBearerEnabled(ScanSettings.SCAN_MODE_LOW_LATENCY);
 //         }
 //         else {
-            mService.setBluetoothBearerEnabled();
+            sendEvent(DEVICE_STATUS_LOGOUT);
+            if (mService.getActiveBearer() == MeshService.Bearer.BLUETOOTH) {
+                connectBluetooth();
+            } else {
+                mService.setBluetoothBearerEnabled();
+            }
         // }
+        }
     }
 
     /**
@@ -759,11 +774,25 @@ Log.d(TAG, "rssi: " + rssi);
                     break;
                 case MeshConstants.MESSAGE_LE_CONNECTED: {
                     Log.d(TAG, "MeshConstants.MESSAGE_LE_CONNECTED " + data.getString(MeshConstants.EXTRA_DEVICE_ADDRESS));
+                    mParent.get().isChannelReady = true;
                     mParent.get().sendEvent(DEVICE_STATUS_LOGIN);
                     break;
                 }
                 case MeshConstants.MESSAGE_LE_DISCONNECTED: {
-                    Log.d(TAG, "Response MESSAGE_LE_DISCONNECT");
+                    Log.d(TAG, "Response MESSAGE_LE_DISCONNECTED");
+                    mParent.get().isChannelReady = false;
+                    mParent.get().sendEvent(DEVICE_STATUS_LOGOUT);
+                    break;
+                }
+                case MeshConstants.MESSAGE_LE_DISCONNECT_COMPLETE: {
+                    Log.d(TAG, "Response MESSAGE_LE_DISCONNECT_COMPLETE");
+                    mParent.get().isChannelReady = false;
+                    mParent.get().sendEvent(DEVICE_STATUS_LOGOUT);
+                    break;
+                }
+                case MeshConstants.MESSAGE_BRIDGE_CONNECT_TIMEOUT: {
+                    Log.d(TAG, "Response MESSAGE_BRIDGE_CONNECT_TIMEOUT");
+                    mParent.get().isChannelReady = false;
                     mParent.get().sendEvent(DEVICE_STATUS_LOGOUT);
                     break;
                 }
