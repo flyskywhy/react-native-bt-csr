@@ -437,7 +437,6 @@ Log.d(TAG, "prepare autoConnect");
      */
     private void connectBluetooth() {
 Log.d(TAG, "start autoConnect");
-mService.setNetworkPassPhrase("aaaa");
 mService.setTTL((byte)100);
 Log.d(TAG, "xxxxxgetTTL" + mService.getTTL());
 // mService.setControllerAddress(32769);
