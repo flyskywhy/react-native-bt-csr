@@ -50,6 +50,23 @@ class CsrBt {
         isSingleNode,
     }) {}
 
+    static isPassthrough({
+        type,
+    }) {
+        return false;
+    }
+
+    static changeBriTmpPwr({
+        meshAddress,
+        brightness,
+        colorTemp,
+        power,
+        dhmKey,
+        type,
+        name,
+        macAddress,
+    }) {}
+
     static changePower({
         meshAddress,
         value

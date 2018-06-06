@@ -59,6 +59,7 @@ import com.csr.csrmesh2.ConfigModelApi;
 import com.csr.csrmesh2.DeviceInfo;
 import com.csr.csrmesh2.MeshConstants;
 import com.csr.csrmesh2.MeshService;
+import com.csr.csrmesh2.DataModelApi;
 import com.csr.csrmesh2.LightModelApi;
 import com.csr.csrmesh2.PowerModelApi;
 import com.csr.csrmesh2.PowerState;
@@ -475,6 +476,24 @@ mService.setDeviceDiscoveryFilterEnabled(true);
     private void stopScan() {
 Log.d(TAG, "stopScan");
         mService.setDeviceDiscoveryFilterEnabled(false);
+    }
+
+    @ReactMethod
+    public void isPassthrough(Promise promise) {
+        promise.resolve(false);
+    }
+
+    @ReactMethod
+    public void changeBriTmpPwr(int meshAddress, int brightness, int colorTemp, int power) {
+        String data = "st00";
+        data += String.format("%02x", brightness);
+        data += String.format("%02x", colorTemp);
+        data += power == 1 ? "op" : "cl";
+        DataModelApi.sendData(meshAddress, data.getBytes(), false);
+        // 可以发送小于等于 10 字节的数据在串口上显示出来，不过发送 10 字节以上或者说 ack 为 true
+        // 但是没有提前 setContinuousScanEnabled() 的会 MeshConstants.MESSAGE_TIMEOUT ，只
+        // 不过这种方式貌似是为了手机之间通过 蓝牙 mesh 网络传输大量数据用的，因此这里就不实现了
+        // DataModelApi.sendData(meshAddress, power == 1 ? "setbri008080op".getBytes() : "setbri008080cl".getBytes(), true);
     }
 
     @ReactMethod

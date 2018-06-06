@@ -77,6 +77,25 @@ class CsrBt {
         }, timeoutSeconds * 1000);
     }
 
+    static isPassthrough({
+        type,
+    }) {
+        return NativeModule.isPassthrough();
+    }
+
+    static changeBriTmpPwr({
+        meshAddress,
+        brightness,
+        colorTemp,
+        power,
+        dhmKey,
+        type,
+        name,
+        macAddress,
+    }) {
+        NativeModule.changeBriTmpPwr(meshAddress, brightness, colorTemp, power);
+    }
+
     static changePower({
         meshAddress,
         value
