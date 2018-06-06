@@ -263,7 +263,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     }
 
     @ReactMethod
-    protected void doResume() {
+    public void doResume() {
         //检查是否支持蓝牙设备
         // if (!LeBluetooth.getInstance().isSupport(mContext)) {
         //     Toast.makeText(mContext, "ble not support", Toast.LENGTH_SHORT).show();
@@ -400,7 +400,7 @@ promise.resolve(true);
     }
 
     @ReactMethod
-    private void autoConnect(String userMeshName, String userMeshPwd, String otaMac) {
+    public void autoConnect(String userMeshName, String userMeshPwd, String otaMac) {
         // LeAutoConnectParameters connectParams = Parameters.createAutoConnectParameters();
         // connectParams.setMeshName(userMeshName);
         // connectParams.setPassword(userMeshPwd);
@@ -447,7 +447,7 @@ Log.d(TAG, "xxxxxgetTTL" + mService.getTTL());
     }
 
     @ReactMethod
-    private void autoRefreshNotify(int repeatCount, int Interval) {
+    public void autoRefreshNotify(int repeatCount, int Interval) {
         // LeRefreshNotifyParameters refreshNotifyParams = Parameters.createRefreshNotifyParameters();
         // refreshNotifyParams.setRefreshRepeatCount(repeatCount);
         // refreshNotifyParams.setRefreshInterval(Interval);
@@ -456,12 +456,12 @@ Log.d(TAG, "xxxxxgetTTL" + mService.getTTL());
     }
 
     @ReactMethod
-    private void idleMode(boolean disconnect) {
+    public void idleMode(boolean disconnect) {
         // TelinkLightService.Instance().idleMode(disconnect);
     }
 
     @ReactMethod
-    private void startScan() {
+    public void startScan() {
         // LeScanParameters params = LeScanParameters.create();
         // params.setMeshName(meshName);
         // params.setOutOfMeshName(outOfMeshName);
@@ -473,7 +473,7 @@ mService.setDeviceDiscoveryFilterEnabled(true);
     }
 
     @ReactMethod
-    private void stopScan() {
+    public void stopScan() {
 Log.d(TAG, "stopScan");
         mService.setDeviceDiscoveryFilterEnabled(false);
     }
@@ -497,7 +497,7 @@ Log.d(TAG, "stopScan");
     }
 
     @ReactMethod
-    private void changePower(int meshAddress, int value) {
+    public void changePower(int meshAddress, int value) {
         if (value >= 0 && value < PowerState.values().length) {
 Log.d(TAG, "xxxxxxmeshAddress: " + meshAddress);
 Log.d(TAG, "xxxxxxvalue: " + value);
@@ -510,15 +510,15 @@ Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
     }
 
     @ReactMethod
-    private void changeBrightness(int meshAddress, int value) {
+    public void changeBrightness(int meshAddress, int value) {
     }
 
     @ReactMethod
-    private void changeColorTemp(int meshAddress, int value) {
+    public void changeColorTemp(int meshAddress, int value) {
     }
 
     @ReactMethod
-    private void changeColor(int meshAddress, int value) {
+    public void changeColor(int meshAddress, int value) {
         // byte red = (byte) (value >> 16 & 0xFF);
         // byte green = (byte) (value >> 8 & 0xFF);
         // byte blue = (byte) (value & 0xFF);
@@ -530,7 +530,7 @@ Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
     }
 
     @ReactMethod
-    private void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
+    public void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
         mConfigNodePromise = promise;
         if (isToClaim) {
             mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
