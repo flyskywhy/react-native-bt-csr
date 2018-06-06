@@ -382,9 +382,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
 
     @ReactMethod
     public void notModeAutoConnectMesh(Promise promise) {
-promise.resolve(true);
-// promise.resolve(mService.isAutoConnectEnabled());
-        // promise.resolve(TelinkLightService.Instance().getMode() != LightAdapter.MODE_AUTO_CONNECT_MESH);
+        promise.resolve(true);
     }
 
     @ReactMethod
@@ -480,7 +478,7 @@ Log.d(TAG, "stopScan");
 
     @ReactMethod
     public void isPassthrough(Promise promise) {
-        promise.resolve(false);
+        promise.reject(new Exception("this node cannot not passthrough"));
     }
 
     @ReactMethod
