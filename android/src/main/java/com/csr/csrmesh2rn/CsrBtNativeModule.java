@@ -533,7 +533,8 @@ Log.d(TAG, "xxxxxxPowerState: " + PowerState.values()[value]);
         if (isToClaim) {
             mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
         } else {
-            mConfigNodePromise.resolve(true);
+            WritableMap params = Arguments.createMap();
+            mConfigNodePromise.resolve(params);
             mConfigNodePromise = null;
             mService.resetDevice(node.getInt("meshAddress"), Hex.decodeHex(node.getString("dhmKey").toCharArray()));
         }
