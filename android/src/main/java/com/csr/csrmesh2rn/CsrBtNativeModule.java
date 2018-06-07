@@ -126,11 +126,29 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     protected int mReqId = -1;
     protected String mDhmKey;
 
-    // Patch
-    private String mPatchConfigNodeOldName;
-
     // Promises
     private Promise mConfigNodePromise;
+
+    final BroadcastReceiver mBluetoothStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+
+            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                switch (state) {
+                    case BluetoothAdapter.STATE_OFF:
+                        if (D) Log.d(TAG, "Bluetooth was disabled");
+                        sendEvent(BT_DISABLED);
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        if (D) Log.d(TAG, "Bluetooth was enabled");
+                        sendEvent(BT_ENABLED);
+                        break;
+                }
+            }
+        }
+    };
 
     public CsrBtNativeModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -241,13 +259,17 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
 
         mReactContext.addActivityEventListener(this);
         mReactContext.addLifecycleEventListener(this);
-        registerBluetoothStateReceiver();
+
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        mReactContext.registerReceiver(mBluetoothStateReceiver, intentFilter);
     }
 
     @ReactMethod
     public void doDestroy() {
         if (isInited) {
             mHandler.removeCallbacksAndMessages(null);
+            mReactContext.unregisterReceiver(mBluetoothStateReceiver);
             isInited = false;
         }
 
@@ -963,39 +985,5 @@ Log.d(TAG, "rssi: " + rssi);
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                 .emit(eventName, null);
         }
-    }
-
-    /**
-     * Register receiver for bluetooth state change
-     */
-    private void registerBluetoothStateReceiver() {
-        IntentFilter intentFilter = new IntentFilter();
-
-        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-
-        final BroadcastReceiver bluetoothStateReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                final String action = intent.getAction();
-
-                if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
-                    final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-                    switch (state) {
-                        case BluetoothAdapter.STATE_OFF:
-                            if (D) Log.d(TAG, "Bluetooth was disabled");
-                            sendEvent(BT_DISABLED);
-                            break;
-                        case BluetoothAdapter.STATE_ON:
-                            if (D) Log.d(TAG, "Bluetooth was enabled");
-                            // TelinkLightService.Instance().idleMode(true);
-                            // autoConnect();
-                            sendEvent(BT_ENABLED);
-                            break;
-                    }
-                }
-            }
-        };
-
-        mReactContext.registerReceiver(bluetoothStateReceiver, intentFilter);
     }
 }
