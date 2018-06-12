@@ -385,20 +385,20 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         } else {
             // Log.d(TAG, "prepare autoConnect");
 
-            /* Set the Bluetooth bearer. This will start the stack, but
-               we don't connect until we receive MESSAGE_LE_BEARER_READY.*/
-//         if (Build.VERSION.SDK_INT >= 21) {
-// Log.d(TAG, "ScanSettings.SCAN_MODE_LOW_LATENCY");
-//             mService.setBluetoothBearerEnabled(ScanSettings.SCAN_MODE_LOW_LATENCY);
-//         }
-//         else {
             sendEvent(DEVICE_STATUS_LOGOUT);
             if (mService.getActiveBearer() == MeshService.Bearer.BLUETOOTH) {
                 connectBluetooth();
             } else {
-                mService.setBluetoothBearerEnabled();
+                /* Set the Bluetooth bearer. This will start the stack, but
+                   we don't connect until we receive MESSAGE_LE_BEARER_READY.*/
+                // if (Build.VERSION.SDK_INT >= 21) {
+                //     Log.d(TAG, "ScanSettings.SCAN_MODE_LOW_LATENCY");
+                //     mService.setBluetoothBearerEnabled(ScanSettings.SCAN_MODE_LOW_LATENCY);
+                // }
+                // else {
+                    mService.setBluetoothBearerEnabled();
+                // }
             }
-        // }
         }
     }
 
