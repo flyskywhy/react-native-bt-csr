@@ -1,14 +1,22 @@
 class CsrBt {
     static MESH_ADDRESS_MIN = 0x8001;
     static MESH_ADDRESS_MAX = 0x8FFF;
-    static BRIGHTNESS_MIN = 1;
-    static BRIGHTNESS_MAX = 127;
+    static HUE_MIN = 0;
+    static HUE_MAX = 360;
+    static SATURATION_MIN = 0;
+    static SATURATION_MAX = 100;
+    static BRIGHTNESS_MIN = 2;
+    static BRIGHTNESS_MAX = 100;
     static COLOR_TEMP_MIN = 1;
-    static COLOR_TEMP_MAX = 127;
+    static COLOR_TEMP_MAX = 100;
     static NODE_STATUS_OFF = 0;
     static NODE_STATUS_ON = 1;
     static NODE_STATUS_OFFLINE = 2;
     static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 1;
+
+    static passthroughMode = undefined; // send data on serial port to controll bluetooth node
+    static lastBrightness = 2;
+    static isClaiming = false;
 
     static doInit() {}
 
@@ -50,12 +58,6 @@ class CsrBt {
         isSingleNode,
     }) {}
 
-    static isPassthrough({
-        type,
-    }) {
-        return false;
-    }
-
     static changeBriTmpPwr({
         meshAddress,
         brightness,
@@ -86,6 +88,8 @@ class CsrBt {
         meshAddress,
         value
     }) {}
+
+    static getTypeFromUuid = uuid => parseInt(uuid.slice(4, 8), 16);
 
     static configNode({
         node,

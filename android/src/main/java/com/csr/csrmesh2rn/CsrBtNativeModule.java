@@ -66,7 +66,6 @@ import com.csr.csrmesh2.PowerState;
 import com.csr.csrmesh2.TimeModelApi;
 
 import static com.csr.csrmesh2rn.CsrBtPackage.TAG;
-import com.csr.csrmesh2rn.utils.Hex;
 
 public class CsrBtNativeModule extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
 
@@ -123,8 +122,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     protected boolean isInited = false;
     protected boolean isServiceStarted = false;
     protected boolean isChannelReady = false;
-    protected int mReqId = -1;
-    protected String mDhmKey;
+    protected String mConfigNodeResetMacAddress;
 
     // Promises
     private Promise mConfigNodePromise;
@@ -415,10 +413,6 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     }
 
     @ReactMethod
-    public void autoRefreshNotify(int repeatCount, int Interval) {
-    }
-
-    @ReactMethod
     public void idleMode(boolean disconnect) {
     }
 
@@ -434,54 +428,61 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         mService.setDeviceDiscoveryFilterEnabled(false);
     }
 
-    @ReactMethod
-    public void isPassthrough(Promise promise) {
-        promise.reject(new Exception("this node cannot not passthrough"));
+    public static byte[] readableArray2ByteArray(ReadableArray arr) {
+        int size = arr.size();
+        byte[] byteArr = new byte[size];
+        for(int i = 0; i < arr.size(); i++) {
+            byteArr[i] = (byte)arr.getInt(i);
+        }
+
+        return byteArr;
     }
 
     @ReactMethod
-    public void changeBriTmpPwr(int meshAddress, int brightness, int colorTemp, int power) {
-        String data = "st00";
-        data += String.format("%02x", brightness);
-        data += String.format("%02x", colorTemp);
-        data += power == 1 ? "op" : "cl";
-        DataModelApi.sendData(meshAddress, data.getBytes(), false);
+    public void sendData(int meshAddress, ReadableArray value) {
+        DataModelApi.sendData(meshAddress, readableArray2ByteArray(value), false);
         // 可以发送小于等于 10 字节的数据在串口上显示出来，不过发送 10 字节以上或者说 ack 为 true
         // 但是没有提前 setContinuousScanEnabled() 的会 MeshConstants.MESSAGE_TIMEOUT ，只
         // 不过这种方式貌似是为了手机之间通过 蓝牙 mesh 网络传输大量数据用的，因此这里就不实现了
-        // DataModelApi.sendData(meshAddress, power == 1 ? "setbri008080op".getBytes() : "setbri008080cl".getBytes(), true);
+        // DataModelApi.sendData(meshAddress, value.getBytes(), true);
     }
 
     @ReactMethod
     public void changePower(int meshAddress, int value) {
         if (value >= 0 && value < PowerState.values().length) {
             PowerModelApi.setState(meshAddress, PowerState.values()[value], true);
-            // PowerModelApi.toggleState(meshAddress, true);
         }
     }
 
     @ReactMethod
     public void changeBrightness(int meshAddress, int value) {
+        LightModelApi.setLevel(meshAddress, value, false);
     }
 
     @ReactMethod
     public void changeColorTemp(int meshAddress, int value) {
+        int duration = 65535;   // TODO: calculate duration from value;
+        LightModelApi.setColorTemperature(meshAddress, value, duration);
     }
 
     @ReactMethod
     public void changeColor(int meshAddress, int value) {
+        int duration = 65535;   // TODO: calculate duration from value;
+        LightModelApi.setRgb(meshAddress, value, duration, false);
     }
 
     @ReactMethod
     public void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
+        stopScan();
         mConfigNodePromise = promise;
+        int deviceHash = MeshService.getDeviceHash31FromUuid(UUID.fromString(node.getString("macAddress")));
+
         if (isToClaim) {
-            mService.associateDevice(Integer.parseInt(node.getString("macAddress")), 0, false, node.getInt("meshAddress"));
+            mService.associateDevice(deviceHash, 0, false, node.getInt("meshAddress"));
         } else {
-            WritableMap params = Arguments.createMap();
-            mConfigNodePromise.resolve(params);
-            mConfigNodePromise = null;
-            mService.resetDevice(node.getInt("meshAddress"), Hex.decodeHex(node.getString("dhmKey").toCharArray()));
+            mConfigNodeResetMacAddress = node.getString("macAddress");
+            mService.resetDevice(node.getInt("meshAddress"), readableArray2ByteArray(node.getArray("dhmKey")));
+            startScan();
         }
     }
 
@@ -489,10 +490,18 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         if (D) Log.d(TAG, "onUpdateMeshCompleted");
         // showBundleData(data);
 
-        int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
-        mDhmKey = Hex.encodeHexStr(data.getByteArray(MeshConstants.EXTRA_RESET_KEY));
-        WritableArray array = Arguments.createArray();
-        mReqId = ConfigModelApi.getInfo(deviceId, DeviceInfo.APPEARANCE);
+        if (mConfigNodePromise != null) {
+            WritableMap params = Arguments.createMap();
+            WritableArray array = Arguments.createArray();
+            byte[] dhmKey = data.getByteArray(MeshConstants.EXTRA_RESET_KEY);
+            for (int i = 0; i < dhmKey.length; i++) {
+                array.pushInt(dhmKey[i] &  0xFF);
+            }
+
+            params.putArray("dhmKey", array);
+            mConfigNodePromise.resolve(params);
+        }
+        mConfigNodePromise = null;
     }
 
     private void onUpdateMeshFailure() {
@@ -501,40 +510,6 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
             mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
         }
         mConfigNodePromise = null;
-    }
-
-    private void configDeviceInfo(Bundle data) {
-        // showBundleData(data);
-
-        int deviceId = data.getInt(MeshConstants.EXTRA_DEVICE_ID);
-        DeviceInfo type = DeviceInfo.values()[data.getInt(MeshConstants.EXTRA_DEVICE_INFO_TYPE)];
-        if (type == DeviceInfo.APPEARANCE) {
-            if (mConfigNodePromise != null) {
-                WritableMap params = Arguments.createMap();
-                params.putString("name", getNameByAppearance((int) data.getLong(MeshConstants.EXTRA_DEVICE_INFORMATION)) + " " + (deviceId - MIN_DEVICE_ID));
-                params.putString("dhmKey", mDhmKey);
-                mConfigNodePromise.resolve(params);
-            }
-            mConfigNodePromise = null;
-        }
-    }
-
-    private String getNameByAppearance(int appearance) {
-        if (appearance == MeshConstants.LIGHT_APPEARANCE) {
-            return "Light";
-        }
-        else if (appearance == MeshConstants.HEATER_APPEARANCE) {
-            return "Heater";
-        }
-        else if (appearance == MeshConstants.SENSOR_APPEARANCE) {
-            return "Sensor";
-        }
-        else if (appearance == MeshConstants.CONTROLLER_APPEARANCE) {
-            return "Controller";
-        }
-        else {
-            return "Unknown";
-        }
     }
 
     public static void showBundleData(Bundle bundle) {
@@ -555,18 +530,23 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         // showBundleData(data);
 
         ParcelUuid uuid = data.getParcelable(MeshConstants.EXTRA_UUID);
-        int uuidHash = data.getInt(MeshConstants.EXTRA_UUIDHASH_31);
-        int rssi = data.getInt(MeshConstants.EXTRA_RSSI);
-        int ttl = data.getInt(MeshConstants.EXTRA_TTL);
+        String macAddress = uuid.getUuid().toString();
         WritableMap params = Arguments.createMap();
-        params.putString("macAddress", uuidHash + "");
-        // params.putString("deviceName", deviceInfo.deviceName);
-        // params.putString("meshName", deviceInfo.meshName);
-        // params.putInt("meshAddress", deviceInfo.meshAddress);
-        // params.putInt("meshUUID", uuid.toString());
-        // params.putInt("productUUID", deviceInfo.productUUID);
-        // params.putInt("status", deviceInfo.status);
-        sendEvent(LE_SCAN, params);
+        if (mConfigNodePromise != null && mConfigNodeResetMacAddress.equals(macAddress)) {
+            stopScan();
+            mConfigNodeResetMacAddress = "";
+            mConfigNodePromise.resolve(params);
+            mConfigNodePromise = null;
+        } else {
+            params.putString("macAddress", macAddress);
+            // params.putString("deviceName", deviceInfo.deviceName);
+            // params.putString("meshName", deviceInfo.meshName);
+            // params.putInt("meshAddress", deviceInfo.meshAddress);
+            // params.putInt("meshUUID", uuid.toString());
+            // params.putInt("productUUID", deviceInfo.productUUID);
+            // params.putInt("status", deviceInfo.status);
+            sendEvent(LE_SCAN, params);
+        }
     }
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -660,18 +640,18 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
                      * to check the signature is valid.
                      */
                     break;
-                case MeshConstants.MESSAGE_CONFIG_DEVICE_INFO: {
-                    Log.d(TAG, "MESSAGE_CONFIG_DEVICE_INFO");
-                    mParent.get().configDeviceInfo(data);
-                    break;
-                }
+                // case MeshConstants.MESSAGE_CONFIG_DEVICE_INFO: {
+                //     Log.d(TAG, "MESSAGE_CONFIG_DEVICE_INFO");
+                //     mParent.get().configDeviceInfo(data);
+                //     break;
+                // }
                 case MeshConstants.MESSAGE_DEVICE_DISCOVERED:
                     Log.d(TAG, "MESSAGE_DEVICE_DISCOVERED");
                     mParent.get().onLeScan(data);
                     break;
                 case MeshConstants.MESSAGE_TIMEOUT:
                     Log.d(TAG, "MESSAGE_TIMEOUT");
-                    showBundleData(data);
+                    // showBundleData(data);
                     break;
                 // case MeshConstants.MESSAGE_ASSOCIATING_DEVICE:
                 //     Log.d(TAG, "MESSAGE_ASSOCIATING_DEVICE");
@@ -679,22 +659,31 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
                 //     break;
                 case MeshConstants.MESSAGE_LOCAL_DEVICE_ASSOCIATED:
                     Log.d(TAG, "MESSAGE_LOCAL_DEVICE_ASSOCIATED");
-                    showBundleData(data);
+                    // showBundleData(data);
                     break;
                 case MeshConstants.MESSAGE_LOCAL_ASSOCIATION_FAILED:
                     Log.d(TAG, "MESSAGE_LOCAL_ASSOCIATION_FAILED");
-                    showBundleData(data);
+                    // showBundleData(data);
                     break;
                 case MeshConstants.MESSAGE_ASSOCIATION_PROGRESS:
                     Log.d(TAG, "MESSAGE_ASSOCIATION_PROGRESS");
-                    showBundleData(data);
+                    // showBundleData(data);
                     break;
                 case MeshConstants.MESSAGE_DEVICE_ASSOCIATED:
                     Log.d(TAG, "MESSAGE_DEVICE_ASSOCIATED");
                     mParent.get().onUpdateMeshCompleted(data);
                     break;
+                case MeshConstants.MESSAGE_ASSOCIATION_FAILED:
+                    Log.d(TAG, "MESSAGE_ASSOCIATION_FAILED");
+                    mParent.get().onUpdateMeshFailure();
+                    break;
                 case MeshConstants.MESSAGE_RECEIVE_BLOCK_DATA: {
                     Log.e(TAG, "MESSAGE_RECEIVE_BLOCK_DATA" + data);
+                    break;
+                }
+                case MeshConstants.MESSAGE_FIRMWARE_VERSION: {
+                    Log.d(TAG, "MESSAGE_FIRMWARE_VERSION");
+                    // showBundleData(data);
                     break;
                 }
                 default:
