@@ -397,10 +397,12 @@ class CsrBt {
                 if (isToClaim && this.passthroughMode) {
                     for (let mode in this.passthroughMode) {
                         if (this.passthroughMode[mode].includes(node.type)) {
-                            this.sendData({
-                                meshAddress: node.meshAddress,
-                                value: [0], // firmware from www.oecore.com need any sendData in 60 seconds to confirm claim, other vendor's firmware should not react with this 0 data, so be it.
-                            });
+                            setTimeout(() => {
+                                this.sendData({
+                                    meshAddress: node.meshAddress,
+                                    value: [0], // firmware from www.oecore.com need any sendData in 60 seconds to confirm claim, other vendor's firmware should not react with this 0 data, so be it.
+                                })
+                            }, 2000);
                             break;
                         }
                     }
