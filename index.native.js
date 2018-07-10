@@ -252,7 +252,7 @@ class CsrBt {
                     if (mode === 'oe') {
                         let data = [0];
                         data = data.concat(this.hsbtb({
-                            color: {
+                            color: hue === -1 ? null : {
                                 hueRatio: hue / this.HUE_MAX,
                                 saturationRatio: saturation / this.SATURATION_MAX,
                                 brightnessRatio: value / this.BRIGHTNESS_MAX,
