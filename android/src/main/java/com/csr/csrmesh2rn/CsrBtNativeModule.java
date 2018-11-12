@@ -57,6 +57,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import com.csr.csrmesh2.ConfigModelApi;
 import com.csr.csrmesh2.DeviceInfo;
+import com.csr.csrmesh2.GroupModelApi;
 import com.csr.csrmesh2.MeshConstants;
 import com.csr.csrmesh2.MeshService;
 import com.csr.csrmesh2.DataModelApi;
@@ -126,6 +127,8 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
 
     // Promises
     private Promise mConfigNodePromise;
+    private Promise mGetNumberOfModelGroupIds;
+    private Promise mSetModelGroupIdPromise;
 
     final BroadcastReceiver mBluetoothStateReceiver = new BroadcastReceiver() {
         @Override
@@ -512,6 +515,56 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
         mConfigNodePromise = null;
     }
 
+    @ReactMethod
+    public void getNumberOfModelGroupIds(int meshAddress, int modelNo, Promise promise) {
+        mGetNumberOfModelGroupIds = promise;
+        GroupModelApi.getNumberOfModelGroupIds(meshAddress, modelNo);
+    }
+
+    private void onGetNumberOfModelGroupIdsCompleted(Bundle data) {
+        if (D) Log.d(TAG, "onGetNumberOfModelGroupIdsCompleted");
+        // showBundleData(data);
+
+        if (mGetNumberOfModelGroupIds != null) {
+            WritableMap params = Arguments.createMap();
+            params.putInt("modelNo", data.getInt(MeshConstants.EXTRA_MODEL_NO));
+            params.putInt("numGroupIds", data.getInt(MeshConstants.EXTRA_NUM_GROUP_IDS));
+            params.putInt("meshAddress", data.getInt(MeshConstants.EXTRA_DEVICE_ID));
+            mGetNumberOfModelGroupIds.resolve(params);
+        }
+        mGetNumberOfModelGroupIds = null;
+    }
+
+    @ReactMethod
+    public void setModelGroupId(int meshAddress, int modelNo, int groupIndex, int instance, int groupAddress, Promise promise) {
+        // stopScan();
+        mSetModelGroupIdPromise = promise;
+        GroupModelApi.setModelGroupId(meshAddress, modelNo, groupIndex, instance, groupAddress);
+    }
+
+    private void onUpdateGroupCompleted(Bundle data) {
+        if (D) Log.d(TAG, "onUpdateGroupCompleted");
+        // showBundleData(data);
+
+        if (mSetModelGroupIdPromise != null) {
+            WritableMap params = Arguments.createMap();
+            params.putInt("meshAddress", data.getInt(MeshConstants.EXTRA_DEVICE_ID));
+            params.putInt("modelNo", data.getInt(MeshConstants.EXTRA_MODEL_NO));
+            params.putInt("groupIndex", data.getInt(MeshConstants.EXTRA_GROUP_INDEX));
+            params.putInt("groupAddress", data.getInt(MeshConstants.EXTRA_GROUP_ID));
+            mSetModelGroupIdPromise.resolve(params);
+        }
+        mSetModelGroupIdPromise = null;
+    }
+
+    private void onUpdateGroupFailure() {
+        if (D) Log.d(TAG, "onUpdateGroupFailure");
+        if (mSetModelGroupIdPromise != null) {
+            mSetModelGroupIdPromise.reject(new Exception("onUpdateGroupFailure"));
+        }
+        mSetModelGroupIdPromise = null;
+    }
+
     public static void showBundleData(Bundle bundle) {
         if (bundle == null) {
             return;
@@ -651,7 +704,7 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
                     break;
                 case MeshConstants.MESSAGE_TIMEOUT:
                     Log.d(TAG, "MESSAGE_TIMEOUT");
-                    // showBundleData(data);
+                    mParent.get().onUpdateGroupFailure();
                     break;
                 // case MeshConstants.MESSAGE_ASSOCIATING_DEVICE:
                 //     Log.d(TAG, "MESSAGE_ASSOCIATING_DEVICE");
@@ -676,6 +729,14 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
                 case MeshConstants.MESSAGE_ASSOCIATION_FAILED:
                     Log.d(TAG, "MESSAGE_ASSOCIATION_FAILED");
                     mParent.get().onUpdateMeshFailure();
+                    break;
+                case MeshConstants.MESSAGE_GROUP_NUM_GROUPIDS:
+                    Log.d(TAG, "MESSAGE_GROUP_NUM_GROUPIDS");
+                    mParent.get().onGetNumberOfModelGroupIdsCompleted(data);
+                    break;
+                case MeshConstants.MESSAGE_GROUP_MODEL_GROUPID:
+                    Log.d(TAG, "MESSAGE_GROUP_MODEL_GROUPID");
+                    mParent.get().onUpdateGroupCompleted(data);
                     break;
                 case MeshConstants.MESSAGE_RECEIVE_BLOCK_DATA: {
                     Log.e(TAG, "MESSAGE_RECEIVE_BLOCK_DATA" + data);

@@ -425,6 +425,20 @@ class CsrBt {
             })
         });
     }
+
+    static getTotalOfGroupIndex({
+        meshAddress,
+    }) {
+        return NativeModule.getNumberOfModelGroupIds(meshAddress, 0xFF);
+    }
+
+    static setNodeGroupAddr({
+        meshAddress,
+        groupIndex,
+        groupAddress,
+    }) {
+        return NativeModule.setModelGroupId(meshAddress, 0xFF, groupIndex, 0, groupAddress);
+    }
 }
 
 module.exports = CsrBt;
