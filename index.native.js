@@ -343,10 +343,17 @@ class CsrBt {
 
     static changeColor({
         meshAddress,
+        hue = 0,
+        saturation = 0,
         value,
         type,
     }) {
-        NativeModule.changeColor(meshAddress, value);
+        let color = tinycolor.fromRatio({
+            h: hue / this.HUE_MAX,
+            s: saturation / this.SATURATION_MAX,
+            v: value / this.BRIGHTNESS_MAX,
+        }).toRgb();
+        NativeModule.changeColor(meshAddress, color.a << 24 | color.r << 16 | color.g << 8 | color.b);
     }
 
     static padHexString(string) {
