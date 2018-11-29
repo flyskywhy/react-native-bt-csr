@@ -372,6 +372,16 @@ class CsrBt {
         return bytes.map(byte => this.padHexString(byte.toString(16))).toString().replace(/,/g, '');
     }
 
+    static changeScene({
+        meshAddress,
+        scene,
+        hue = 0,
+        saturation = 0,
+        value,
+        colorIds = [1, 2, 3, 4, 5],
+        type,
+    }) {}
+
     static getTypeFromUuid = uuid => parseInt(uuid.slice(4, 8), 16);
 
     static configNode({
