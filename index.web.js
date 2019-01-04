@@ -40,6 +40,8 @@ class CsrBt {
 
     static removeListener(eventName, handler) {}
 
+    static enableBluetooth() {}
+
     static notModeAutoConnectMesh() {
         return true;
     }

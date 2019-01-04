@@ -363,6 +363,13 @@ public class CsrBtNativeModule extends ReactContextBaseJavaModule implements Act
     }
 
     @ReactMethod
+    public void enableBluetooth() {
+        if (mBluetoothAdapter != null && !mBluetoothAdapter.isEnabled()) {
+            mBluetoothAdapter.enable();
+        }
+    }
+
+    @ReactMethod
     public void notModeAutoConnectMesh(Promise promise) {
         promise.resolve(true);
     }
