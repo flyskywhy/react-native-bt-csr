@@ -140,6 +140,10 @@ class CsrBt {
         }
     }
 
+    static remind({
+        meshAddress,
+    }) {}
+
     static changePower({
         meshAddress,
         value,

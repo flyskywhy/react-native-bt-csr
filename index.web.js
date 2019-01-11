@@ -85,6 +85,10 @@ class CsrBt {
         macAddress,
     }) {}
 
+    static remind({
+        meshAddress,
+    }) {}
+
     static changePower({
         meshAddress,
         value
