@@ -148,6 +148,7 @@ class CsrBt {
         meshAddress,
         value,
         type,
+        immediate = false,
     }) {
         let changed = false;
 
@@ -407,6 +408,7 @@ class CsrBt {
         value,
         colorIds = [1, 2, 3, 4, 5],
         type,
+        immediate = false,
     }) {}
 
     static getTypeFromUuid = uuid => parseInt(uuid.slice(4, 8), 16);
