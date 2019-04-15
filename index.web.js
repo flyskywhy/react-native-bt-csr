@@ -43,6 +43,8 @@ class CsrBt {
 
     static enableBluetooth() {}
 
+    static enableSystemLocation() {}
+
     static notModeAutoConnectMesh() {
         return true;
     }

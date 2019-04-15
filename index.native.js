@@ -61,6 +61,10 @@ class CsrBt {
         NativeModule.enableBluetooth();
     }
 
+    static enableSystemLocation() {
+        NativeModule.enableSystemLocation();
+    }
+
     static notModeAutoConnectMesh() {
         return NativeModule.notModeAutoConnectMesh();
     }
