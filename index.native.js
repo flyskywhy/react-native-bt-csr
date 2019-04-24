@@ -8,8 +8,7 @@ var tinycolor = require("tinycolor2");
 
 class CsrBt {
     static MESH_ADDRESS_MIN = 0x8001;
-    // static MESH_ADDRESS_MAX = 0x8FFF;
-    static MESH_ADDRESS_MAX = 0x8000 + 20; // 1100 字节的二维码最多分享 20 个蓝牙设备
+    static MESH_ADDRESS_MAX = 0x8FFF;
     static GROUP_ADDRESS_MIN = 0x0000;
     static GROUP_ADDRESS_MAX = 0x7FFF;
     static HUE_MIN = 0;
