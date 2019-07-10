@@ -45,7 +45,9 @@ class CsrBt {
     static enableSystemLocation() {}
 
     static notModeAutoConnectMesh() {
-        return true;
+        return new Promise((resolve, reject) => {
+            reject();
+        });
     }
 
     static setNetworkPassPhrase({
