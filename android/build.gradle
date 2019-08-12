@@ -2,7 +2,6 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 26
-    buildToolsVersion '26.0.2'
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 26
@@ -24,9 +23,9 @@ repositories {
 }
 
 dependencies {
-    compile 'csrmesh2.com.csr:csrmeshlibrary:+@aar'
-    compile 'com.madgag.spongycastle:core:1.51.0.0'
-    compile 'com.madgag.spongycastle:pkix:1.51.0.0'
-    compile 'com.facebook.react:react-native:+'
-    compile 'com.android.support:support-v13:23.1.1'
+    implementation 'csrmesh2.com.csr:csrmeshlibrary:+@aar'
+    implementation 'com.madgag.spongycastle:core:1.51.0.0'
+    implementation 'com.madgag.spongycastle:pkix:1.51.0.0'
+    implementation 'com.facebook.react:react-native:+'
+    implementation 'com.android.support:support-v13:23.1.1'
 }
