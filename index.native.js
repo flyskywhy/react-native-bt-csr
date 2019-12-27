@@ -410,7 +410,7 @@ class CsrBt {
     }
 
     static byteArray2HexString(bytes) {
-        return bytes.map(byte => this.padHexString(byte.toString(16))).toString().replace(/,/g, '');
+        return bytes.map(byte => this.padHexString((byte & 0xFF).toString(16))).toString().replace(/,/g, '');
     }
 
     static changeScene({
