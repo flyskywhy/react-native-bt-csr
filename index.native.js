@@ -553,6 +553,11 @@ class CsrBt {
         immediate = false,
     }) {}
 
+    // 是否是两个发布版本之间的测试版本
+    static isTestFw({
+        fwVer,
+    }) {}
+
     static getOtaState({
         meshAddress = 0x0000,
         relayTimes = 7,
