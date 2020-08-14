@@ -1,6 +1,6 @@
 {
   "name": "react-native-bt-csr",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Component implementation for Bluetooth Mesh SDK of CSR",
   "main": "index",
   "scripts": {
