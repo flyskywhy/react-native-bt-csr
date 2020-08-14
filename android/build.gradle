@@ -19,7 +19,7 @@ android {
 }
 
 repositories {
-    maven { url "$rootDir/../app/node_modules/react-native-bt-csr/android/libs" }
+    maven { url "$rootDir/../node_modules/react-native-bt-csr/android/libs" }
 }
 
 dependencies {
