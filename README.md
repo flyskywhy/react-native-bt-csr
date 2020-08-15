@@ -28,7 +28,7 @@ repositories {
 }
 
 dependencies {
-    compile project(':react-native-bt-csr')
+    implementation project(':react-native-bt-csr')
 }
 ```
 
@@ -79,6 +79,7 @@ export default class MeshModuleExample extends React.Component {
         );
     }
 }
+```
 
 ## Sponsor
 
