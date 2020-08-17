@@ -8,10 +8,16 @@
 Component implementation for Bluetooth Mesh SDK of CSR.
 
 ## Install
-
+For RN >= 0.60
 ```shell
 npm i --save react-native-bt-csr
 ```
+
+For RN < 0.60
+```shell
+npm i --save react-native-bt-csr@1.0.x
+```
+
 For RN >= 0.60 , just in `android/app/build.gradle`
 ```
 repositories {
