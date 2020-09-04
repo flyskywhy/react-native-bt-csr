@@ -1,0 +1,2 @@
+configurations.maybeCreate("default")
+artifacts.add("default", file('csrmesh2/com/csr/csrmeshlibrary/1.0.0/csrmeshlibrary-1.0.0.aar'))
