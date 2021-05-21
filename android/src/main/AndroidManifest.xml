@@ -13,6 +13,7 @@
         android:required="true" />
     <!-- Android6.0 蓝牙扫描才需要-->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Camera permissions -->
     <uses-permission
